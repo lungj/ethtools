@@ -23,7 +23,7 @@ import datetime
 import urllib.request
 from math import ceil, log
 
-EXTRAPOLATION_DAYS = 0    # Extrapolate n days into the future using 2 * n days of history.
+EXTRAPOLATION_DAYS = 0    # Extrapolate n days into the future using n days of history.
                           # Fit using simple discrete exponent. Sensitive to spikes on a single day.
                           # Obviously does not predict the future. Thus, it will fail to account for
                           # significant events like
