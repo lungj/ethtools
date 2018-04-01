@@ -24,6 +24,7 @@ is > 0 for mining nodes.
 '''
 
 import random
+from collections import defaultdict
 from time import sleep
 from pprint import pformat
 
@@ -57,22 +58,18 @@ class Block(object):
         self.height = height
         self.previous = previous
         self.miner = miner
-        self.uncles = uncles or set()
-        if previous:
-            self.balances = dict(previous.balances)
-        else:
-            self.balances = {}
+        self.uncles = uncles or []
+        self.balances = previous.balances.copy() if previous else defaultdict(int)
         
+        # Update account balances with mining rewards.
         if miner:
-            self.balances[miner] = self.balances.get(miner, 0) + BLOCKREWARD
-        
-        if uncles and miner:
-            for uncle in uncles:
-                # Reward for including uncle.
-                self.balances[miner] = self.balances.get(miner, 0) + BLOCKREWARD / 32
-                # Reward to miner of uncle.
-                self.balances[uncle.miner] = self.balances.get(uncle.miner, 0) + \
-                    ((self.height - uncle.height + 8) * BLOCKREWARD / 8)
+            self.balances[miner] += BLOCKREWARD
+
+        for uncle in uncles:
+            # Reward for including uncle.
+            self.balances[miner] += BLOCKREWARD / 32
+            # Reward to miner of uncle.
+            self.balances[uncle.miner] += ((self.height - uncle.height + 8) * BLOCKREWARD / 8)
     
     def can_be_uncle_of(self, other):
         '''Return True iff self can be an uncle block included in other.'''
@@ -110,24 +107,25 @@ class Blockchain(object):
         if self.last_block.height < new_block.height:
             self.last_block = new_block
         
-        else:
-            if new_block.can_be_uncle_of(self.last_block):
+        elif new_block.can_be_uncle_of(self.last_block):
                 self.potential_uncles.append(new_block)
 
     def prune_uncle_candidates(self):
-        '''Get rid of blocks in the potential uncle pool that can't be uncles.'''
+        '''Get rid of blocks in the potential uncle pool that are too old to be included
+           as uncles.'''
         self.potential_uncles = [candidate for candidate in self.potential_uncles if \
             candidate.can_be_uncle_of(self.last_block)]
 
     def append(self, miner):
         '''Append a block to the chain mined by miner.'''
+        self.prune_uncle_candidates()
 
-        self.prune_uncle_candidates()    
-            
+        # Get up to two available uncle candidates.
         use_uncles, self.potential_uncles = self.potential_uncles[:2], self.potential_uncles[2:]
         self.last_block = Block(self.last_block.height + 1, miner, use_uncles, self.last_block)
         
     def chain_history(self):
+        '''Return a string representation of the history of the chain.'''
         retstr = ''
         cur_block = self.last_block
         while cur_block != Blockchain.genesis_block:
@@ -137,7 +135,7 @@ class Blockchain(object):
         return retstr
 
     def __repr__(self):
-        return pformat(self.last_block.balances)
+        return pformat(dict(self.last_block.balances))
 
 class Miner(object):
     def __init__(self, name, hashrate):
@@ -151,26 +149,31 @@ class Miner(object):
         if self == miner:
             return 0
 
+        # Use a latency, if specified.
         if (self, miner) in LATENCIES:
             return LATENCIES[self, miner]()
 
         if (miner, self) in LATENCIES:
             return LATENCIES[miner, self]()
 
-        return 0.2  # Just a static 200ms latency by default.
+        # Default to 200ms latency.
+        return 0.2
 
     def simulate_mining(self):
-        if (random.random() * (TOTAL_HASHPOWER / self.hashrate)) < (TIMESTEP / BLOCKTIME):
-            self.chainstate.append(self)
-            
-            for miner in MINERS:
-                if miner != self:
-                    evt = Event(time + self.latency_to(miner), (
+        if (random.random() * (TOTAL_HASHPOWER / self.hashrate)) >= (TIMESTEP / BLOCKTIME):
+            return False
+
+        # New block found. Add it to this node's chain.
+        self.chainstate.append(self)
+
+        for miner in MINERS:
+             if miner != self:
+                # Let the remote miner hear about the block in the future.
+                evt = Event(time + self.latency_to(miner), (
                         lambda miner, block: lambda: miner.chainstate.update(block) 
-                        )(miner, self.chainstate.last_block))
-                    events.schedule(evt)
-            return True
-        return False
+                    )(miner, self.chainstate.last_block))
+                events.schedule(evt)
+        return True
 
     def __repr__(self):
         return self.name
