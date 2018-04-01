@@ -46,12 +46,9 @@ class EventQueue(object):
         self.pending.sort(key=lambda x: x.time)
     
     def process(self):
-        for event in self.pending[:]:
-            if time >= event.time:
-                event()
-                self.pending.pop(0)
-            else:
-                return
+        '''Run any event that should have happened by now.'''
+        while self.pending and self.pending[0].time <= time:
+            self.pending.pop(0)()   # Run the next event
 
 class Block(object):
     def __init__(self, height, miner=None, uncles=None, previous=None):
