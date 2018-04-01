@@ -4,8 +4,6 @@ Maybe I just stopped you from doing something foolish. Or in retrospect brillian
 In any case...
 ETH/ETC: 0xc5500095A395B4FB3ba81bB0D8e316c675d1F47C
 
-Data sourced from https://etherscan.io
-
 THIS PROGRAM DOES NOT CONSTITUTE INVESTMENT ADVICE. IT IS OFFERED AS-IS AND WITHOUT
 WARRANTY. See LICENSE file.
 
