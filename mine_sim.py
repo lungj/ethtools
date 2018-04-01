@@ -92,7 +92,7 @@ class Block(object):
                 return False                        # Can't include same uncle twice?
             cur_block = cur_block.previous
         
-        return cur_block.previous == other.previous
+        return cur_block.previous == self.previous
     
     def __repr__(self):
         return str(id(self))
