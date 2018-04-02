@@ -65,7 +65,7 @@ class Block(object):
         if miner:
             self.balances[miner] += BLOCKREWARD
 
-        for uncle in uncles:
+        for uncle in self.uncles:
             # Reward for including uncle.
             self.balances[miner] += BLOCKREWARD / 32
             # Reward to miner of uncle.
